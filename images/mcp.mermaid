@@ -1,0 +1,17 @@
+graph LR
+    A[🤖 AI Agent] -->|1. Discover Tools| B[MCP Server]
+    B -->|2. List Available Tools| A
+    A -->|3. Call Tool by Name| B
+    B -->|4. Execute| C[HackerNews]
+    B -->|4. Execute| D[RSS Feeds]
+    B -->|4. Execute| E[Weather]
+    B -->|4. Execute| F[Future: Gmail]
+    C -->|5. Return Data| B
+    B -->|6. Return Results| A
+
+    style A fill:#FFD700,stroke:#FFA500,stroke-width:3px,color:#000
+    style B fill:#4169E1,stroke:#0000CD,stroke-width:3px,color:#fff
+    style C fill:#32CD32,stroke:#228B22,stroke-width:2px,color:#000
+    style D fill:#32CD32,stroke:#228B22,stroke-width:2px,color:#000
+    style E fill:#32CD32,stroke:#228B22,stroke-width:2px,color:#000
+    style F fill:#90EE90,stroke:#228B22,stroke-width:2px,stroke-dasharray: 5 5,color:#000
