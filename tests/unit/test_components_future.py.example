@@ -1,0 +1,726 @@
+"""Comprehensive unit tests for enhanced components.
+
+Tests for:
+- Enhanced configuration management
+- Enhanced logging with rotation
+- Enhanced base agent with lifecycle hooks
+"""
+
+import json
+import logging
+import os
+import tempfile
+import time
+from pathlib import Path
+from unittest.mock import Mock, patch, MagicMock
+
+import pytest
+import structlog
+
+# Import enhanced modules
+# Note: In actual implementation, adjust imports based on your project structure
+
+
+# ============================================================================
+# Configuration Tests
+# ============================================================================
+
+class TestEnhancedConfiguration:
+    """Tests for enhanced configuration management."""
+    
+    def test_llm_config_validation_temperature_range(self):
+        """Test temperature validation with detailed messages."""
+        from config_enhanced import LLMConfig
+        
+        # Valid temperatures
+        assert LLMConfig(temperature=0.0).temperature == 0.0
+        assert LLMConfig(temperature=1.0).temperature == 1.0
+        assert LLMConfig(temperature=2.0).temperature == 2.0
+        
+        # Invalid temperatures
+        with pytest.raises(ValueError, match="Temperature must be between"):
+            LLMConfig(temperature=2.5)
+        
+        with pytest.raises(ValueError, match="Temperature must be between"):
+            LLMConfig(temperature=-0.1)
+    
+    def test_llm_config_validation_max_retries(self):
+        """Test max_retries validation."""
+        from config_enhanced import LLMConfig
+        
+        # Valid retries
+        assert LLMConfig(max_retries=1).max_retries == 1
+        assert LLMConfig(max_retries=5).max_retries == 5
+        
+        # Too few retries
+        with pytest.raises(ValueError, match="must be at least 1"):
+            LLMConfig(max_retries=0)
+        
+        # Too many retries
+        with pytest.raises(ValueError, match="too high"):
+            LLMConfig(max_retries=15)
+    
+    def test_llm_config_url_validation(self):
+        """Test Ollama URL validation and normalization."""
+        from config_enhanced import LLMConfig
+        
+        # Valid URLs
+        config1 = LLMConfig(ollama_base_url="http://localhost:11434")
+        assert config1.ollama_base_url == "http://localhost:11434"
+        
+        # Trailing slash removal
+        config2 = LLMConfig(ollama_base_url="http://localhost:11434/")
+        assert config2.ollama_base_url == "http://localhost:11434"
+        
+        # Invalid URL
+        with pytest.raises(ValueError, match="must start with http"):
+            LLMConfig(ollama_base_url="localhost:11434")
+    
+    def test_news_config_validation(self):
+        """Test news configuration validation."""
+        from config_enhanced import NewsConfig
+        
+        # Valid story count
+        assert NewsConfig(hn_top_stories_count=20).hn_top_stories_count == 20
+        
+        # Too many stories
+        with pytest.raises(ValueError, match="may be slow"):
+            NewsConfig(hn_top_stories_count=150)
+        
+        # Empty interests
+        with pytest.raises(ValueError, match="cannot be empty"):
+            NewsConfig(interests=[])
+        
+        # Interests converted to lowercase
+        config = NewsConfig(interests=["AI", "Python"])
+        assert config.interests == ["ai", "python"]
+    
+    def test_news_config_rss_validation(self):
+        """Test RSS feed URL validation."""
+        from config_enhanced import NewsConfig
+        
+        # Valid RSS feeds
+        config = NewsConfig(rss_feeds=["https://example.com/feed"])
+        assert len(config.rss_feeds) == 1
+        
+        # Invalid RSS feed URL
+        with pytest.raises(ValueError, match="Invalid RSS feed URL"):
+            NewsConfig(rss_feeds=["not-a-url"])
+    
+    def test_output_config_email_validation(self):
+        """Test email validation."""
+        from config_enhanced import OutputConfig
+        
+        # Valid email
+        config = OutputConfig(email="test@example.com")
+        assert config.email == "test@example.com"
+        
+        # Email converted to lowercase
+        config2 = OutputConfig(email="Test@Example.COM")
+        assert config2.email == "test@example.com"
+        
+        # Invalid email
+        with pytest.raises(ValueError, match="Invalid email format"):
+            OutputConfig(email="not-an-email")
+    
+    def test_output_config_port_validation(self):
+        """Test dashboard port validation."""
+        from config_enhanced import OutputConfig
+        
+        # Valid port
+        assert OutputConfig(dashboard_port=8501).dashboard_port == 8501
+        
+        # Privileged port
+        with pytest.raises(ValueError, match="privileged range"):
+            OutputConfig(dashboard_port=80)
+        
+        # Port too high
+        with pytest.raises(ValueError, match="exceeds maximum"):
+            OutputConfig(dashboard_port=70000)
+    
+    def test_app_config_log_level_validation(self):
+        """Test log level validation."""
+        from config_enhanced import AppConfig
+        
+        # Valid log levels
+        assert AppConfig(log_level="INFO").log_level == "INFO"
+        assert AppConfig(log_level="debug").log_level == "DEBUG"
+        
+        # Invalid log level
+        with pytest.raises(ValueError, match="Invalid log_level"):
+            AppConfig(log_level="INVALID")
+    
+    def test_app_config_environment_validation(self):
+        """Test environment validation."""
+        from config_enhanced import AppConfig
+        
+        # Valid environments
+        assert AppConfig(environment="development").environment == "development"
+        assert AppConfig(environment="Production").environment == "production"
+        
+        # Invalid environment
+        with pytest.raises(ValueError, match="Invalid environment"):
+            AppConfig(environment="unknown")
+    
+    def test_settings_environment_detection(self):
+        """Test environment detection methods."""
+        from config_enhanced import Settings, AppConfig
+        
+        # Development
+        settings = Settings()
+        settings.app = AppConfig(environment="development")
+        assert settings.is_development()
+        assert not settings.is_production()
+        assert not settings.is_testing()
+        
+        # Production
+        settings.app = AppConfig(environment="production")
+        assert settings.is_production()
+        assert not settings.is_development()
+        
+        # Testing
+        settings.app = AppConfig(environment="testing")
+        assert settings.is_testing()
+    
+    def test_settings_validation_warnings(self):
+        """Test configuration validation warnings."""
+        from config_enhanced import Settings, AppConfig, OutputConfig
+        
+        # Production with debug enabled
+        settings = Settings()
+        settings.app = AppConfig(environment="production", debug=True)
+        messages = settings.validate_all()
+        assert any("debug=True in production" in msg for msg in messages)
+        
+        # Production with default email
+        settings = Settings()
+        settings.app = AppConfig(environment="production")
+        settings.output = OutputConfig(email="user@example.com")
+        messages = settings.validate_all()
+        assert any("default email" in msg for msg in messages)
+    
+    def test_settings_export_schema(self):
+        """Test schema export."""
+        from config_enhanced import Settings
+        
+        settings = Settings()
+        schema = settings.export_schema()
+        
+        assert "title" in schema
+        assert "properties" in schema
+    
+    def test_settings_to_dict(self):
+        """Test dictionary export."""
+        from config_enhanced import Settings
+        
+        settings = Settings()
+        config_dict = settings.to_dict()
+        
+        assert "llm" in config_dict
+        assert "news" in config_dict
+        assert "output" in config_dict
+        assert "app" in config_dict
+    
+    def test_settings_singleton(self):
+        """Test singleton pattern."""
+        from config_enhanced import get_settings, reset_settings
+        
+        # First call creates instance
+        settings1 = get_settings()
+        
+        # Second call returns same instance
+        settings2 = get_settings()
+        assert settings1 is settings2
+        
+        # Reset creates new instance
+        reset_settings()
+        settings3 = get_settings()
+        assert settings3 is not settings1
+
+
+# ============================================================================
+# Logging Tests
+# ============================================================================
+
+class TestEnhancedLogging:
+    """Tests for enhanced logging with rotation."""
+    
+    def test_setup_logging_console(self):
+        """Test console logging setup."""
+        from logging_enhanced import setup_logging, get_logger
+        
+        setup_logging(log_level="INFO", json_format=False)
+        logger = get_logger("test")
+        
+        # Should not raise
+        logger.info("test_message", key="value")
+    
+    def test_setup_logging_json(self):
+        """Test JSON logging setup."""
+        from logging_enhanced import setup_logging, get_logger
+        
+        setup_logging(log_level="INFO", json_format=True)
+        logger = get_logger("test")
+        
+        # Should not raise
+        logger.info("test_message", key="value")
+    
+    def test_setup_logging_with_file(self):
+        """Test file logging with rotation."""
+        from logging_enhanced import setup_logging, get_logger
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_file = os.path.join(tmpdir, "test.log")
+            
+            setup_logging(
+                log_level="INFO",
+                log_file=log_file,
+                max_bytes=1024,  # Small for testing
+                backup_count=2
+            )
+            
+            logger = get_logger("test")
+            logger.info("test_message")
+            
+            # Check log file was created
+            assert Path(log_file).exists()
+    
+    def test_rotating_file_handler(self):
+        """Test log file rotation."""
+        from logging_enhanced import setup_logging, get_logger
+        
+        with tempfile.TemporaryDirectory() as tmpdir:
+            log_file = os.path.join(tmpdir, "test.log")
+            
+            setup_logging(
+                log_level="INFO",
+                log_file=log_file,
+                max_bytes=100,  # Very small to force rotation
+                backup_count=2
+            )
+            
+            logger = get_logger("test")
+            
+            # Write enough logs to trigger rotation
+            for i in range(50):
+                logger.info(f"test_message_{i}" * 10)
+            
+            # Check if backup files were created
+            log_files = list(Path(tmpdir).glob("test.log*"))
+            # Should have test.log plus backups
+            assert len(log_files) > 1
+    
+    def test_log_context_manager(self):
+        """Test log context manager."""
+        from logging_enhanced import setup_logging, log_context, get_logger
+        
+        setup_logging(log_level="INFO")
+        
+        with log_context(user_id="123", request_id="abc"):
+            logger = get_logger("test")
+            # Context should be included automatically
+            logger.info("test_with_context")
+    
+    def test_log_exception_helper(self):
+        """Test exception logging helper."""
+        from logging_enhanced import setup_logging, log_exception, get_logger
+        
+        setup_logging(log_level="ERROR")
+        logger = get_logger("test")
+        
+        try:
+            raise ValueError("Test error")
+        except Exception as e:
+            # Should not raise
+            log_exception(logger, "error_occurred", e, extra="info")
+    
+    def test_log_execution_decorator(self):
+        """Test execution logging decorator."""
+        from logging_enhanced import setup_logging, log_execution, get_logger
+        
+        setup_logging(log_level="INFO")
+        
+        @log_execution(log_args=True, log_result=True)
+        def test_function(x: int, y: int) -> int:
+            return x + y
+        
+        result = test_function(2, 3)
+        assert result == 5
+
+
+# ============================================================================
+# Base Agent Tests
+# ============================================================================
+
+class TestEnhancedBaseAgent:
+    """Tests for enhanced base agent with lifecycle hooks."""
+    
+    def test_agent_initialization(self):
+        """Test agent initialization."""
+        from base_agent_enhanced import BaseAgent, AgentConfig
+        
+        class TestAgent(BaseAgent[str]):
+            def _execute(self) -> str:
+                return "test"
+        
+        agent = TestAgent(name="test")
+        assert agent.name == "test"
+        assert agent.state.value == "idle"
+    
+    def test_agent_with_config(self):
+        """Test agent with custom configuration."""
+        from base_agent_enhanced import BaseAgent, AgentConfig
+        
+        class TestAgent(BaseAgent[str]):
+            def _execute(self) -> str:
+                return "test"
+        
+        config = AgentConfig(max_retries=5, timeout=10.0)
+        agent = TestAgent(name="test", config=config)
+        
+        assert agent.config.max_retries == 5
+        assert agent.config.timeout == 10.0
+    
+    def test_agent_successful_execution(self):
+        """Test successful agent execution."""
+        from base_agent_enhanced import BaseAgent
+        
+        class TestAgent(BaseAgent[str]):
+            def _execute(self) -> str:
+                return "success"
+        
+        agent = TestAgent()
+        result = agent.run()
+        
+        assert result.success
+        assert result.data == "success"
+        assert result.error is None
+        assert agent.state.value == "success"
+    
+    def test_agent_failed_execution(self):
+        """Test failed agent execution."""
+        from base_agent_enhanced import BaseAgent
+        
+        class TestAgent(BaseAgent[str]):
+            def _execute(self) -> str:
+                raise ValueError("Test error")
+        
+        config_no_retry = AgentConfig(max_retries=1)
+        agent = TestAgent(config=config_no_retry)
+        result = agent.run()
+        
+        assert not result.success
+        assert result.data is None
+        assert "ValueError" in result.error
+        assert agent.state.value == "failed"
+    
+    def test_agent_before_execute_hook(self):
+        """Test before_execute lifecycle hook."""
+        from base_agent_enhanced import BaseAgent
+        
+        class TestAgent(BaseAgent[str]):
+            def before_execute(self):
+                self.setup_called = True
+            
+            def _execute(self) -> str:
+                return "test"
+        
+        agent = TestAgent()
+        agent.setup_called = False
+        result = agent.run()
+        
+        assert agent.setup_called
+        assert result.success
+    
+    def test_agent_after_execute_hook(self):
+        """Test after_execute lifecycle hook."""
+        from base_agent_enhanced import BaseAgent
+        
+        class TestAgent(BaseAgent[str]):
+            def _execute(self) -> str:
+                return "original"
+            
+            def after_execute(self, result: str) -> str:
+                return result + "_modified"
+        
+        agent = TestAgent()
+        result = agent.run()
+        
+        assert result.success
+        assert result.data == "original_modified"
+    
+    def test_agent_on_error_hook(self):
+        """Test on_error lifecycle hook."""
+        from base_agent_enhanced import BaseAgent, AgentConfig
+        
+        class TestAgent(BaseAgent[str]):
+            def _execute(self) -> str:
+                raise ValueError("Test error")
+            
+            def on_error(self, error: Exception):
+                self.error_handled = True
+                self.error_type = type(error).__name__
+        
+        agent = TestAgent(config=AgentConfig(max_retries=1))
+        agent.error_handled = False
+        result = agent.run()
+        
+        assert not result.success
+        assert agent.error_handled
+        assert agent.error_type == "ValueError"
+    
+    def test_agent_on_retry_hook(self):
+        """Test on_retry lifecycle hook."""
+        from base_agent_enhanced import BaseAgent, AgentConfig
+        
+        class TestAgent(BaseAgent[str]):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                self.attempt_count = 0
+                self.retry_attempts = []
+            
+            def _execute(self) -> str:
+                self.attempt_count += 1
+                if self.attempt_count < 3:
+                    raise ValueError(f"Attempt {self.attempt_count}")
+                return "success"
+            
+            def on_retry(self, attempt: int, error: Exception):
+                super().on_retry(attempt, error)
+                self.retry_attempts.append(attempt)
+        
+        agent = TestAgent(config=AgentConfig(max_retries=3))
+        result = agent.run()
+        
+        assert result.success
+        assert len(agent.retry_attempts) == 2  # Failed twice before success
+    
+    def test_agent_timeout(self):
+        """Test agent timeout functionality."""
+        from base_agent_enhanced import BaseAgent, AgentConfig
+        
+        class SlowAgent(BaseAgent[str]):
+            def _execute(self) -> str:
+                time.sleep(2)  # Sleep longer than timeout
+                return "done"
+        
+        config = AgentConfig(timeout=0.5, max_retries=1)
+        agent = SlowAgent(config=config)
+        result = agent.run()
+        
+        assert not result.success
+        assert "timeout" in result.error.lower() or "exceeded" in result.error.lower()
+    
+    def test_agent_on_timeout_hook(self):
+        """Test on_timeout lifecycle hook."""
+        from base_agent_enhanced import BaseAgent, AgentConfig
+        
+        class SlowAgent(BaseAgent[str]):
+            def _execute(self) -> str:
+                time.sleep(2)
+                return "done"
+            
+            def on_timeout(self):
+                self.timeout_handled = True
+        
+        agent = SlowAgent(config=AgentConfig(timeout=0.5, max_retries=1))
+        agent.timeout_handled = False
+        result = agent.run()
+        
+        assert not result.success
+        assert agent.timeout_handled
+    
+    def test_agent_timeout_override(self):
+        """Test timeout override in run()."""
+        from base_agent_enhanced import BaseAgent, AgentConfig
+        
+        class TestAgent(BaseAgent[str]):
+            def _execute(self) -> str:
+                return "success"
+        
+        # Agent with no default timeout
+        agent = TestAgent(config=AgentConfig(timeout=None))
+        
+        # Override with timeout in run()
+        result = agent.run(timeout_override=5.0)
+        assert result.success
+    
+    def test_agent_dependency_injection(self):
+        """Test dependency injection."""
+        from base_agent_enhanced import BaseAgent
+        
+        class TestAgent(BaseAgent[str]):
+            def _execute(self) -> str:
+                db = self.get_dependency("database")
+                return f"Using {db}"
+        
+        dependencies = {"database": "PostgreSQL"}
+        agent = TestAgent(dependencies=dependencies)
+        result = agent.run()
+        
+        assert result.success
+        assert "PostgreSQL" in result.data
+    
+    def test_agent_get_dependency_with_default(self):
+        """Test get_dependency with default value."""
+        from base_agent_enhanced import BaseAgent
+        
+        class TestAgent(BaseAgent[str]):
+            def _execute(self) -> str:
+                return "test"
+        
+        agent = TestAgent()
+        
+        # Existing dependency
+        agent.set_dependency("key", "value")
+        assert agent.get_dependency("key") == "value"
+        
+        # Non-existing dependency with default
+        assert agent.get_dependency("missing", "default") == "default"
+    
+    def test_agent_detailed_metrics(self):
+        """Test detailed metrics tracking."""
+        from base_agent_enhanced import BaseAgent
+        
+        class TestAgent(BaseAgent[str]):
+            def _execute(self) -> str:
+                return "success"
+        
+        agent = TestAgent()
+        
+        # Run multiple times
+        for _ in range(3):
+            agent.run()
+        
+        metrics = agent.get_detailed_metrics()
+        assert metrics.total_executions == 3
+        assert metrics.successful_executions == 3
+        assert metrics.failed_executions == 0
+        assert metrics.average_execution_time > 0
+    
+    def test_agent_metrics_after_failure(self):
+        """Test metrics tracking after failures."""
+        from base_agent_enhanced import BaseAgent, AgentConfig
+        
+        class FailingAgent(BaseAgent[str]):
+            def _execute(self) -> str:
+                raise ValueError("Always fails")
+        
+        agent = FailingAgent(config=AgentConfig(max_retries=1))
+        
+        # Run twice
+        agent.run()
+        agent.run()
+        
+        metrics = agent.get_detailed_metrics()
+        assert metrics.total_executions == 2
+        assert metrics.successful_executions == 0
+        assert metrics.failed_executions == 2
+    
+    def test_agent_reset(self):
+        """Test agent reset functionality."""
+        from base_agent_enhanced import BaseAgent
+        
+        class TestAgent(BaseAgent[str]):
+            def _execute(self) -> str:
+                return "success"
+        
+        agent = TestAgent()
+        agent.run()
+        
+        assert agent.metrics.total_executions == 1
+        assert agent.state.value != "idle"
+        
+        # Reset
+        agent.reset()
+        
+        assert agent.metrics.total_executions == 0
+        assert agent.state.value == "idle"
+    
+    def test_agent_validation_hooks(self):
+        """Test input/output validation hooks."""
+        from base_agent_enhanced import BaseAgent
+        
+        class ValidatingAgent(BaseAgent[int]):
+            def validate_inputs(self) -> bool:
+                # Custom input validation
+                return hasattr(self, 'required_input')
+            
+            def validate_outputs(self, result: int) -> bool:
+                # Custom output validation
+                return result > 0
+            
+            def _execute(self) -> int:
+                return self.required_input * 2
+        
+        # Test input validation failure
+        agent1 = ValidatingAgent()
+        result1 = agent1.run()
+        assert not result1.success
+        assert "validation failed" in result1.error.lower()
+        
+        # Test successful execution
+        agent2 = ValidatingAgent()
+        agent2.required_input = 5
+        result2 = agent2.run()
+        assert result2.success
+        assert result2.data == 10
+
+
+# ============================================================================
+# Integration Tests
+# ============================================================================
+
+class TestComponentIntegration:
+    """Integration tests combining multiple components."""
+    
+    def test_agent_with_config_and_logging(self):
+        """Test agent using configuration and logging."""
+        from base_agent_enhanced import BaseAgent, AgentConfig
+        from logging_enhanced import setup_logging, get_logger
+        from config_enhanced import Settings
+        
+        setup_logging(log_level="INFO")
+        settings = Settings()
+        
+        class IntegrationAgent(BaseAgent[str]):
+            def _execute(self) -> str:
+                logger = get_logger(__name__)
+                logger.info("Agent executing", model=self.settings.llm.ollama_model)
+                return "integrated"
+        
+        config = AgentConfig(max_retries=settings.llm.max_retries)
+        agent = IntegrationAgent(config=config, settings=settings)
+        
+        result = agent.run()
+        assert result.success
+        assert result.data == "integrated"
+
+
+# ============================================================================
+# Pytest Configuration
+# ============================================================================
+
+@pytest.fixture(autouse=True)
+def reset_global_state():
+    """Reset global state before each test."""
+    # Reset settings
+    try:
+        from config_enhanced import reset_settings
+        reset_settings()
+    except ImportError:
+        pass
+    
+    yield
+    
+    # Cleanup after test
+    try:
+        from config_enhanced import reset_settings
+        reset_settings()
+    except ImportError:
+        pass
+
+
+if __name__ == "__main__":
+    # Run tests
+    pytest.main([__file__, "-v", "--tb=short"])

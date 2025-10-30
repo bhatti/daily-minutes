@@ -1,0 +1,13 @@
+#!/bin/bash
+# Wrapper script for the news CLI
+
+# Ensure we're in the right directory
+cd "$(dirname "$0")"
+
+# Activate virtual environment if it exists
+if [ -d "venv" ]; then
+    source venv/bin/activate
+fi
+
+# Run the CLI with all arguments passed through
+python -m src.cli.news_cli "$@"

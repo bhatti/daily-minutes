@@ -1,0 +1,79 @@
+# Git
+.git
+.gitignore
+.gitattributes
+
+# Python
+__pycache__
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environments
+venv/
+env/
+ENV/
+.venv
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Documentation
+*.md
+docs/
+
+# ChromaDB (will be in volume)
+chroma_data/
+
+# Data files (will be in volume)
+data/
+*.db
+*.sqlite
+
+# Credentials (mounted as volume)
+credentials/
+*.json
+*.pem
+
+# Logs (will be in volume)
+logs/
+*.log
+
+# Test files
+tests/
+.pre-commit-config.yaml
+
+# Development tools
+Makefile
+pyproject.toml
+requirements-dev.txt
+
+# Docker
+.dockerignore
+Dockerfile
+docker-compose.yml
+
+# CI/CD
+.github/
+
+# Temporary files
+tmp/
+temp/
+*.tmp

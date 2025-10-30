@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  # GreenMail - Full-featured email testing server with SMTP, IMAP, POP3
+  # Web UI: http://localhost:8080 (API only, no web interface)
+  # SMTP: localhost:3025
+  # IMAP: localhost:3143
+  # Test user: test / test
+  mock-email-server:
+    image: greenmail/standalone:2.0.1
+    container_name: daily-minutes-mock-email
+    ports:
+      - "3025:3025"   # SMTP server (for sending test emails)
+      - "3143:3143"   # IMAP server (for IMAP connector testing)
+      - "3110:3110"   # POP3 server
+      - "3465:3465"   # SMTPS server (SSL)
+      - "3993:3993"   # IMAPS server (SSL)
+      - "3995:3995"   # POP3S server (SSL)
+      - "8080:8080"   # API endpoint
+    environment:
+      - GREENMAIL_OPTS=-Dgreenmail.setup.test.all -Dgreenmail.hostname=0.0.0.0 -Dgreenmail.users=test:test@localhost -Dgreenmail.verbose
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/localhost/3025' && timeout 2 bash -c '</dev/tcp/localhost/3143' || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3

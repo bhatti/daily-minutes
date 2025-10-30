@@ -1,0 +1,127 @@
+# Daily Minutes - Docker Compose Configuration
+# Production-ready stack with all AI components
+
+version: '3.8'
+
+services:
+  # Main application
+  daily-minutes:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: daily-minutes-app
+    ports:
+      - "8501:8501"
+    environment:
+      # Ollama settings
+      - OLLAMA_HOST=http://ollama:11434
+      - OLLAMA_MODEL=llama3.2:3b
+      - OLLAMA_EMBEDDING_MODEL=nomic-embed-text
+
+      # Langfuse observability (optional)
+      - LANGFUSE_ENABLED=false
+      - LANGFUSE_PUBLIC_KEY=${LANGFUSE_PUBLIC_KEY:-}
+      - LANGFUSE_SECRET_KEY=${LANGFUSE_SECRET_KEY:-}
+      - LANGFUSE_HOST=${LANGFUSE_HOST:-https://cloud.langfuse.com}
+
+      # Application settings
+      - LOG_LEVEL=INFO
+      - DEBUG=false
+
+    volumes:
+      # Persist ChromaDB vector store
+      - chroma_data:/app/chroma_data
+      # Persist application data
+      - app_data:/app/data
+      # Persist logs
+      - app_logs:/app/logs
+      # Mount credentials (read-only)
+      - ./credentials:/app/credentials:ro
+    depends_on:
+      ollama:
+        condition: service_healthy
+    networks:
+      - daily-minutes-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8501/_stcore/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Ollama LLM server
+  ollama:
+    image: ollama/ollama:latest
+    container_name: daily-minutes-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    networks:
+      - daily-minutes-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:11434/api/tags"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    # GPU support (uncomment for NVIDIA GPUs)
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+
+  # Langfuse (optional - for observability)
+  langfuse-server:
+    image: langfuse/langfuse:latest
+    container_name: daily-minutes-langfuse
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://langfuse:langfuse@langfuse-db:5432/langfuse
+      - NEXTAUTH_URL=http://localhost:3000
+      - NEXTAUTH_SECRET=${NEXTAUTH_SECRET:-changeme-generate-a-secret}
+      - SALT=${SALT:-changeme-generate-a-salt}
+    depends_on:
+      - langfuse-db
+    networks:
+      - daily-minutes-network
+    restart: unless-stopped
+    profiles:
+      - with-langfuse
+
+  langfuse-db:
+    image: postgres:15-alpine
+    container_name: daily-minutes-langfuse-db
+    environment:
+      - POSTGRES_USER=langfuse
+      - POSTGRES_PASSWORD=langfuse
+      - POSTGRES_DB=langfuse
+    volumes:
+      - langfuse_db:/var/lib/postgresql/data
+    networks:
+      - daily-minutes-network
+    restart: unless-stopped
+    profiles:
+      - with-langfuse
+
+volumes:
+  chroma_data:
+    driver: local
+  app_data:
+    driver: local
+  app_logs:
+    driver: local
+  ollama_data:
+    driver: local
+  langfuse_db:
+    driver: local
+
+networks:
+  daily-minutes-network:
+    driver: bridge

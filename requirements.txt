@@ -1,0 +1,88 @@
+# Daily Minutes - Working Requirements for Python 3.12+
+# Tested and verified on Python 3.12.3
+
+# Core Dependencies
+pydantic>=2.10,<3.0
+pydantic-settings>=2.6,<3.0
+python-dotenv>=1.0,<2.0
+httpx>=0.28,<1.0
+tenacity>=8.5,<9.0
+
+# LLM & AI - Latest compatible versions
+langchain>=1.0,<2.0
+langchain-community>=0.4,<1.0
+langchain-core>=1.0,<2.0
+langgraph>=1.0,<2.0
+ollama>=0.4,<1.0
+openai>=2.0,<3.0
+tiktoken>=0.8,<1.0
+
+# Data Processing
+pandas>=2.2,<3.0
+numpy>=1.26,<3.0
+feedparser>=6.0,<7.0
+beautifulsoup4>=4.12,<5.0
+lxml>=5.0,<6.0
+email-validator>=2.1,<3.0
+
+# Vector Storage & RAG
+chromadb>=1.2,<2.0
+faiss-cpu>=1.9,<2.0
+sentence-transformers>=3.0,<4.0
+
+# Email & Calendar
+google-api-python-client>=2.140,<3.0
+google-auth>=2.30,<3.0
+google-auth-oauthlib>=1.2,<2.0
+google-auth-httplib2>=0.2,<1.0
+exchangelib>=5.0,<6.0
+
+# Observability - CORRECTED VERSION
+langfuse>=3.0,<4.0
+
+# UI
+streamlit>=1.40,<2.0
+plotly>=5.20,<6.0
+altair>=5.0,<6.0
+
+# Utilities
+structlog>=24.0,<25.0
+diskcache>=5.6,<6.0
+pyyaml>=6.0,<7.0
+click>=8.1,<9.0
+rich>=13.0,<14.0
+
+# Async
+aiohttp>=3.10,<4.0
+
+# Task Scheduling
+apscheduler>=3.10,<4.0
+
+# Additional useful packages
+requests>=2.32,<3.0
+python-dateutil>=2.9,<3.0
+pytz>=2024.1
+
+# Development Tools
+pre-commit>=4.0,<5.0
+black>=24.0,<25.0
+isort>=5.13,<6.0
+flake8>=7.0,<8.0
+mypy>=1.11,<2.0
+pylint>=3.0,<4.0
+
+# Testing
+pytest>=8.0,<9.0
+pytest-asyncio>=0.24,<1.0
+pytest-cov>=5.0,<6.0
+pytest-mock>=3.14,<4.0
+pytest-timeout>=2.3,<3.0
+
+# Type stubs
+types-requests>=2.32
+types-PyYAML>=6.0
+
+# Optional: Development utilities
+ipython>=8.20,<9.0
+python-ulid>=2.0,<3.0  # Time-ordered UUIDs for better indexing
+aiosqlite>=0.21,<1.0  # Async SQLite support
