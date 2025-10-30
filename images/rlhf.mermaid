@@ -1,0 +1,23 @@
+graph LR
+    A[📧 Email Arrives] -->|AI Base Score:<br/>0.5| B[Email Display]
+    B -->|User Clicks| C{User Feedback}
+
+    C -->|👍 Important| D[Extract Keywords:<br/>security, urgent]
+    C -->|👎 Skip| E[Extract Keywords:<br/>newsletter, tips]
+
+    D -->|Add to| F[Boost Labels]
+    E -->|Add to| G[Filter Labels]
+
+    F --> H[(User Profile)]
+    G --> H
+
+    H -->|Next Email| I[New Email:<br/>Security Alert]
+    I -->|Check Labels| F
+    F -->|Contains security| J[Boost: +0.2]
+    I -->|Base: 0.5| K[Final Score:<br/>0.7 HIGH!]
+
+    style A fill:#FFE4B5,stroke:#FFA500,stroke-width:2px,color:#000
+    style C fill:#FFD700,stroke:#FF8C00,stroke-width:3px,color:#000
+    style D fill:#90EE90,stroke:#228B22,stroke-width:2px,color:#000
+    style E fill:#FF6B6B,stroke:#C92A2A,stroke-width:2px,color:#fff
+    style K fill:#32CD32,stroke:#006400,stroke-width:3px,color:#fff
