@@ -1,0 +1,46 @@
+graph TB
+    subgraph Layer3["🖥️ LAYER 3: USER INTERFACE"]
+        UI[Streamlit Dashboard]
+        UI --> |Displays|Brief[Daily Brief]
+        UI --> |Displays|News[News Feed]
+        UI --> |Displays|Email[Email List]
+        UI --> |Collects|Feedback[👍/👎 Feedback]
+    end
+
+    subgraph Layer2["🧠 LAYER 2: INTELLIGENCE"]
+        React[ReAct Agent<br/>Reasoning]
+        LG[LangGraph<br/>Orchestration]
+        RAG[RAG Service<br/>Memory]
+        RLHF[RLHF<br/>Learning]
+        Brief_Gen[Brief Generator<br/>Ollama LLM]
+
+        React --> LG
+        LG --> RAG
+        LG --> Brief_Gen
+        Feedback --> RLHF
+    end
+
+    subgraph Layer1["🔌 LAYER 1: DATA SOURCES"]
+        MCP[MCP Server<br/>Tool Registry]
+        HN[HackerNews<br/>Connector]
+        RSS[RSS Feeds<br/>Connector]
+        Weather[Weather API<br/>Connector]
+        Gmail[Gmail<br/>Future]
+        Cal[Calendar<br/>Future]
+
+        HN --> MCP
+        RSS --> MCP
+        Weather --> MCP
+        Gmail -.-> MCP
+        Cal -.-> MCP
+    end
+
+    Layer3 --> |Reads Cache|Layer2
+    Layer2 --> |Calls Tools|Layer1
+
+    style Layer3 fill:#4A90E2,stroke:#2E5C8A,stroke-width:3px,color:#fff
+    style Layer2 fill:#7B68EE,stroke:#5A4DB3,stroke-width:3px,color:#fff
+    style Layer1 fill:#50C878,stroke:#3A9B5C,stroke-width:3px,color:#fff
+    style UI fill:#64B5F6,stroke:#1976D2,color:#000
+    style React fill:#9575CD,stroke:#512DA8,color:#fff
+    style MCP fill:#66BB6A,stroke:#388E3C,color:#000
