@@ -60,6 +60,17 @@ async def preload_all_data(max_articles: int = 30, force_regenerate: bool = Fals
         if success:
             articles = await db_manager.get_all_articles(limit=100)
             print(f"   ✅ Loaded {len(articles)} news articles")
+
+            # Index articles in RAG for semantic search
+            print(f"   🔍 Indexing articles in RAG database...")
+            try:
+                from src.services.rag_service import get_rag_service
+                rag_service = get_rag_service()
+                indexed_ids = await rag_service.add_articles_batch(articles)
+                print(f"   ✅ Indexed {len(indexed_ids)} articles in RAG")
+            except Exception as rag_error:
+                print(f"   ⚠️  RAG indexing failed: {str(rag_error)[:50]}")
+                logger.warning("rag_indexing_failed", error=str(rag_error))
         else:
             print(f"   ❌ Failed to load news")
     except Exception as e:

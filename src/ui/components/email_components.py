@@ -24,6 +24,54 @@ logger = get_logger(__name__)
 # Helper Functions - These have unit tests
 # ===================================================================
 
+def _extract_keywords(text: str, max_keywords: int = 3) -> List[str]:
+    """Extract important keywords from text for RLHF learning.
+
+    Simple keyword extraction - looks for:
+    - Capitalized words (likely important nouns)
+    - Common technical/domain terms
+    - Filters out common words
+
+    Args:
+        text: Text to extract keywords from
+        max_keywords: Maximum number of keywords to return
+
+    Returns:
+        List of extracted keywords (lowercase)
+    """
+    # Common words to ignore
+    stopwords = {
+        'the', 'a', 'an', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for',
+        'of', 'with', 'by', 'from', 'as', 'is', 'was', 'are', 'were', 'be',
+        'been', 'being', 'have', 'has', 'had', 'do', 'does', 'did', 'will',
+        'would', 'should', 'could', 'may', 'might', 'can', 'this', 'that',
+        'these', 'those', 'i', 'you', 'he', 'she', 'it', 'we', 'they', 're'
+    }
+
+    # Split into words and clean
+    words = text.lower().split()
+    keywords = []
+
+    for word in words:
+        # Remove punctuation
+        clean_word = ''.join(c for c in word if c.isalnum())
+
+        # Keep if:
+        # - Not a stopword
+        # - Length >= 4 (meaningful words)
+        # - Not already in list
+        if (clean_word and
+            clean_word not in stopwords and
+            len(clean_word) >= 4 and
+            clean_word not in keywords):
+            keywords.append(clean_word)
+
+            if len(keywords) >= max_keywords:
+                break
+
+    return keywords[:max_keywords]
+
+
 def prepare_email_display_data(email: EmailMessage) -> Dict[str, any]:
     """Prepare email data for display using EmailFormatter.
 
@@ -196,8 +244,8 @@ def render_email_card(email: EmailMessage, expanded: bool = False) -> None:
 
     # Container for the email card
     with st.container():
-        # Header row with sender and time
-        col1, col2 = st.columns([3, 1])
+        # Header row with sender, time, and RLHF feedback buttons
+        col1, col2, col3, col4 = st.columns([6, 2, 1, 1])
 
         with col1:
             # Show read/unread indicator
@@ -206,6 +254,34 @@ def render_email_card(email: EmailMessage, expanded: bool = False) -> None:
 
         with col2:
             st.caption(display_data["time_display"])
+
+        # RLHF Feedback Buttons
+        with col3:
+            if st.button("👍", key=f"important_{email.id}", help="Mark as important - Learn from this"):
+                # Extract keywords from subject + body for learning
+                content = f"{email.subject} {email.body or ''}"
+                keywords = _extract_keywords(content)
+
+                # Store in session state for learning
+                if 'rlhf_boost_labels' not in st.session_state:
+                    st.session_state.rlhf_boost_labels = set()
+                st.session_state.rlhf_boost_labels.update(keywords)
+
+                st.success(f"✅ Learned: You care about {', '.join(keywords)}")
+                logger.info("rlhf_feedback_positive", email_id=email.id, keywords=keywords)
+
+        with col4:
+            if st.button("👎", key=f"skip_{email.id}", help="Deprioritize - Learn to skip these"):
+                # Extract keywords from subject for filtering
+                keywords = _extract_keywords(email.subject)
+
+                # Store in session state for learning
+                if 'rlhf_filter_labels' not in st.session_state:
+                    st.session_state.rlhf_filter_labels = set()
+                st.session_state.rlhf_filter_labels.update(keywords)
+
+                st.success(f"✅ Will deprioritize: {', '.join(keywords)}")
+                logger.info("rlhf_feedback_negative", email_id=email.id, keywords=keywords)
 
         # Subject with importance badge
         subject_line = display_data["subject"]

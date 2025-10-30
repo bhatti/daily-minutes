@@ -2,7 +2,7 @@
 
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from pydantic import EmailStr, Field, field_validator
 
@@ -30,6 +30,44 @@ class EmailFolder(str, Enum):
     TRASH = "trash"
     SPAM = "spam"
     IMPORTANT = "important"
+
+
+class ImportanceScoringMixin:
+    """Learn from user feedback using RLHF (Reinforcement Learning from Human Feedback).
+
+    This mixin enables emails to be scored based on user preferences that are learned
+    over time. Users can mark emails as important (👍) or unimportant (👎), and the
+    system learns keywords to boost or filter future emails.
+    """
+
+    importance_score: float = 0.5  # AI's base score (0.0 to 1.0)
+    boost_labels: Set[str] = set()  # Words user marked important
+    filter_labels: Set[str] = set()  # Words user wants to skip
+
+    def apply_rlhf_boost(self, content_text: str) -> float:
+        """Adjust importance score based on learned preferences.
+
+        Args:
+            content_text: Email subject + body text to analyze
+
+        Returns:
+            Adjusted importance score between 0.0 and 1.0
+        """
+        adjusted = self.importance_score
+        content_lower = content_text.lower()
+
+        # Boost if content matches important keywords
+        for label in self.boost_labels:
+            if label.lower() in content_lower:
+                adjusted += 0.1  # Bump up priority!
+
+        # Penalize if content matches skip keywords
+        for label in self.filter_labels:
+            if label.lower() in content_lower:
+                adjusted -= 0.2  # Push down priority!
+
+        # Keep in valid range [0, 1]
+        return max(0.0, min(1.0, adjusted))
 
 
 class EmailAttachment(BaseModel):

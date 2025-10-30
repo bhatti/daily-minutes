@@ -26,4 +26,4 @@ export PYTHONPATH=.
 export VERIFY_SSL=false
 export DEV_MODE=true
 # Run the dashboard
-./venv/bin/streamlit run streamlit_app.py
+./venv/bin/streamlit run src/ui/streamlit_app.py
