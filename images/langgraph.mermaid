@@ -1,0 +1,26 @@
+graph TD
+    Start([▶️ START]) --> Analyze[📋 Analyze Request]
+
+    Analyze -->|Parallel!| News[📰 Fetch News<br/>5 sec]
+    Analyze -->|Parallel!| Email[📧 Fetch Emails<br/>3 sec]
+    Analyze -->|Parallel!| Cal[📅 Fetch Calendar<br/>2 sec]
+    Analyze -->|Parallel!| Weather[🌤️ Fetch Weather<br/>1 sec]
+
+    News --> RAG[🔍 Search RAG<br/>for Context]
+    Email --> RAG
+    Cal --> RAG
+    Weather --> RAG
+
+    RAG --> Summary[📝 Generate Summary<br/>LLM Call]
+    Summary --> Insights[💡 Extract Insights<br/>LLM Call]
+    Insights --> End([✅ DONE<br/>Total: 5 sec!])
+
+    style Start fill:#32CD32,stroke:#006400,stroke-width:3px,color:#fff
+    style Analyze fill:#FFD700,stroke:#FF8C00,stroke-width:2px,color:#000
+    style News fill:#4169E1,stroke:#0000CD,stroke-width:2px,color:#fff
+    style Email fill:#4169E1,stroke:#0000CD,stroke-width:2px,color:#fff
+    style Cal fill:#4169E1,stroke:#0000CD,stroke-width:2px,color:#fff
+    style Weather fill:#4169E1,stroke:#0000CD,stroke-width:2px,color:#fff
+    style RAG fill:#9370DB,stroke:#4B0082,stroke-width:2px,color:#fff
+    style Summary fill:#FF69B4,stroke:#C71585,stroke-width:2px,color:#fff
+    style End fill:#32CD32,stroke:#006400,stroke-width:3px,color:#fff
