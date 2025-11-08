@@ -1,0 +1,39 @@
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#00D9FF','secondaryColor':'#FF8800','tertiaryColor':'#00FF88','primaryBorderColor':'#DD88FF','lineColor':'#FFD700'}}}%%
+graph LR
+
+    subgraph Architecture["🏗️ Architecture Patterns"]
+        direction LR
+        A1[Monolith<br/>1990s] -->|Too Rigid| A2[Microservices<br/>2010s]
+        A2 -->|Too Complex| A3[Modular Monolith<br/>2020s]
+        style A1 fill:#00D9FF,stroke:#000,stroke-width:3px,color:#000
+        style A2 fill:#FF8800,stroke:#000,stroke-width:3px,color:#000
+        style A3 fill:#00FF88,stroke:#000,stroke-width:3px,color:#000
+    end
+    
+    subgraph Typing["📝 Type Systems"]
+        direction LR
+        T1[Strongly Typed<br/>CORBA IDL] -->|Too Complex| T2[Untyped<br/>JSON/REST]
+        T2 -->|Too Loose| T3[Typed Again<br/>gRPC/Proto]
+        style T1 fill:#DD88FF,stroke:#000,stroke-width:3px,color:#000
+        style T2 fill:#FFD700,stroke:#000,stroke-width:3px,color:#000
+        style T3 fill:#00D9FF,stroke:#000,stroke-width:3px,color:#000
+    end
+    
+    subgraph Communication["💬 Communication"]
+        direction LR
+        C1[Synchronous<br/>RPC] -->|Coupling| C2[Asynchronous<br/>Messaging]
+        C2 -->|Complexity| C3[Reactive<br/>Streams]
+        style C1 fill:#FF4444,stroke:#000,stroke-width:3px,color:#000
+        style C2 fill:#00FF88,stroke:#000,stroke-width:3px,color:#000
+        style C3 fill:#00D9FF,stroke:#000,stroke-width:3px,color:#000
+    end
+    
+    subgraph Distribution["🌐 Distribution"]
+        direction LR
+        D1[Centralized<br/>Monolith] -->|Scale| D2[Distributed<br/>Services]
+        D2 -->|Latency| D3[Edge<br/>Computing]
+        style D1 fill:#DD88FF,stroke:#000,stroke-width:3px,color:#000
+        style D2 fill:#FFD700,stroke:#000,stroke-width:3px,color:#000
+        style D3 fill:#FF8800,stroke:#000,stroke-width:3px,color:#000
+    end
+
