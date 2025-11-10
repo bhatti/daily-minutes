@@ -1,0 +1,22 @@
+%%{init: {'theme':'base', 'themeVariables': { 'primaryColor':'#4ECDC4','primaryTextColor':'#000','primaryBorderColor':'#2C7873','lineColor':'#FFD93D','secondaryColor':'#FF6B6B','tertiaryColor':'#95E1D3','noteBkgColor':'#F38181','noteTextColor':'#000','fontSize':'16px'}}}%%
+
+flowchart TD
+    Start([Start here]) --> Partition{Partition?}
+    
+    Partition -->|N| CA[✅ Consistent<br/>& Available]
+    Partition -->|Y| Quorum{Quorum of<br/>replicas?}
+    
+    Quorum -->|N| NotAvail1[❌ Not available<br/>for updates]
+    Quorum -->|Y| Commutative{Ops are<br/>commutative or<br/>mergeable?}
+    
+    Commutative -->|Y| EventualCA[⚡ Eventually Consistent<br/>& Available]
+    Commutative -->|N| NotAvail2[❌ Not available<br/>for updates]
+    
+    style Start fill:#FFD93D,stroke:#F9A825,stroke-width:3px,color:#000
+    style Partition fill:#4ECDC4,stroke:#2C7873,stroke-width:3px,color:#000
+    style Quorum fill:#4ECDC4,stroke:#2C7873,stroke-width:3px,color:#000
+    style Commutative fill:#4ECDC4,stroke:#2C7873,stroke-width:3px,color:#000
+    style CA fill:#95E1D3,stroke:#2ECC71,stroke-width:4px,color:#000
+    style EventualCA fill:#A8E6CF,stroke:#52B788,stroke-width:4px,color:#000
+    style NotAvail1 fill:#FF6B6B,stroke:#C0392B,stroke-width:3px,color:#FFF
+    style NotAvail2 fill:#FF6B6B,stroke:#C0392B,stroke-width:3px,color:#FFF
